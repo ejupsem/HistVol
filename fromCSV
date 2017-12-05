@@ -1,0 +1,111 @@
+#!/usr/bin/env python2
+# -*- coding: utf-8 -*-
+"""
+Created on Thu Nov 30 10:58:37 2017
+
+@author: ejupsem
+daily annualized volatility
+"""
+
+import pandas as pd
+import numpy as np
+
+BTC = pd.read_csv('BTC_daily.csv')
+table = BTC[['Date','Close']]
+
+yesterday = table[1:1677]
+today = table[:-1]
+today.columns = ['Date','Today']
+yesterday.columns = ['Date2','Yesterday']
+today = today.reset_index()
+yesterday = yesterday.reset_index()
+today = today[['Date','Today']]
+yesterday = yesterday[['Date2','Yesterday']]
+today = today.reset_index()
+yesterday = yesterday.reset_index()
+merged = pd.merge(today,yesterday,on='index')
+merged['divided'] = merged['Today']/merged['Yesterday']
+merged['ln'] = np.log(merged['divided'])
+merged['5mean'] = -1
+merged['10mean'] = -1
+merged['21mean'] = -1
+merged['63mean'] = -1
+merged['126mean'] = -1
+merged['5meandif'] = -1
+merged['10meandif'] = -1
+merged['21meandif'] = -1
+merged['63meandif'] = -1
+merged['126meandif'] = -1
+
+count = 0
+while count < len(merged) - 4:
+    merged.loc[count,'5mean'] = merged.loc[count:count+4,"ln"].mean()
+    merged.loc[count,'5meandif'] = merged.loc[count,'ln'] - merged.loc[count:count+4,"ln"].mean()
+    count = count + 1
+
+count = 0    
+while count < len(merged) - 9:    
+    merged.loc[count,'10mean'] = merged.loc[count:count+9,"ln"].mean()
+    merged.loc[count,'10meandif'] = merged.loc[count,'ln'] - merged.loc[count:count+9,"ln"].mean()
+    count = count + 1
+
+count = 0
+while count < len(merged) - 20:    
+    merged.loc[count,'21mean'] = merged.loc[count:count+20,"ln"].mean()
+    merged.loc[count,'21meandif'] = merged.loc[count,'ln'] - merged.loc[count:count+20,"ln"].mean()
+    count = count + 1
+
+count = 0
+while count < len(merged) - 62:
+    merged.loc[count,'63mean'] = merged.loc[count:count+62,"ln"].mean()
+    merged.loc[count,'63meandif'] = merged.loc[count,'ln'] - merged.loc[count:count+62,"ln"].mean()
+    count = count + 1
+
+count = 0
+while count < len(merged) - 125:
+    merged.loc[count,'126mean'] = merged.loc[count:count+125,"ln"].mean()
+    merged.loc[count,'126meandif'] = merged.loc[count,'ln'] - merged.loc[count:count+125,"ln"].mean()
+    count = count + 1
+
+merged['5meandifsq'] = np.square(merged['5meandif'])
+merged['10meandifsq'] = np.square(merged['10meandif'])
+merged['21meandifsq'] = np.square(merged['21meandif'])
+merged['63meandifsq'] = np.square(merged['63meandif'])
+merged['126meandifsq'] = np.square(merged['126meandif'])
+merged['std5'] = -1
+merged['std10'] = -1
+merged['std21'] = -1
+merged['std63'] = -1
+merged['std126'] = -1
+
+count = 0
+while count < len(merged) - 4:
+    merged.loc[count,'std5'] = merged.loc[count:count+4,"5meandifsq"].sum()/4
+    count = count + 1
+
+count = 0
+while count < len(merged) - 9:
+    merged.loc[count,'std10'] = merged.loc[count:count+9,"10meandifsq"].sum()/9
+    count = count + 1
+
+count = 0
+while count < len(merged) - 20:
+    merged.loc[count,'std21'] = merged.loc[count:count+20,"21meandifsq"].sum()/20
+    count = count + 1
+
+count = 0
+while count < len(merged) - 62:
+    merged.loc[count,'std63'] = merged.loc[count:count+62,"63meandifsq"].sum()/62
+    count = count + 1
+
+count = 0
+while count < len(merged) - 125:
+    merged.loc[count,'std126'] = merged.loc[count:count+125,"126meandifsq"].sum()/125
+    count = count + 1
+
+sq252 = np.sqrt(252)
+merged['5vol'] = merged['std5'] * sq252 * 100
+merged['10vol'] = merged['std10'] * sq252 * 100
+merged['21vol'] = merged['std21'] * sq252 * 100
+merged['63vol'] = merged['std63'] * sq252 * 100
+merged['126vol'] = merged['std126'] * sq252 * 100
