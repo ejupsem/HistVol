@@ -5,12 +5,27 @@ Created on Thu Nov 30 10:58:37 2017
 
 @author: ejupsem
 daily annualized volatility
+lets do non-live vol
+pretend these calcs are always done AMC, 0 is that day close
+so 5 day calc uses 6 closes
+0-1
+1-2
+2-3
+3-4
+4-5
+next calc a universal tool?
+is this censored or demeaned
+create legend
+inputs for vols, days back
+date on x axis, not days ago
+other currencies
 """
 
 import pandas as pd
 import numpy as np
+import matplotlib.pyplot as plt
 
-BTC = pd.read_csv('BTC_daily.csv')
+BTC = pd.read_csv('BTC_daily2.csv')
 table = BTC[['Date','Close']]
 
 yesterday = table[1:1677]
@@ -80,32 +95,73 @@ merged['std126'] = -1
 
 count = 0
 while count < len(merged) - 4:
-    merged.loc[count,'std5'] = merged.loc[count:count+4,"5meandifsq"].sum()/4
+    merged.loc[count,'std5'] = np.sqrt(merged.loc[count:count+4,"5meandifsq"].sum()/4)
     count = count + 1
 
 count = 0
 while count < len(merged) - 9:
-    merged.loc[count,'std10'] = merged.loc[count:count+9,"10meandifsq"].sum()/9
+    merged.loc[count,'std10'] = np.sqrt(merged.loc[count:count+9,"10meandifsq"].sum()/9)
     count = count + 1
 
 count = 0
 while count < len(merged) - 20:
-    merged.loc[count,'std21'] = merged.loc[count:count+20,"21meandifsq"].sum()/20
+    merged.loc[count,'std21'] = np.sqrt(merged.loc[count:count+20,"21meandifsq"].sum()/20)
     count = count + 1
 
 count = 0
 while count < len(merged) - 62:
-    merged.loc[count,'std63'] = merged.loc[count:count+62,"63meandifsq"].sum()/62
+    merged.loc[count,'std63'] = np.sqrt(merged.loc[count:count+62,"63meandifsq"].sum()/62)
     count = count + 1
 
 count = 0
 while count < len(merged) - 125:
-    merged.loc[count,'std126'] = merged.loc[count:count+125,"126meandifsq"].sum()/125
+    merged.loc[count,'std126'] = np.sqrt(merged.loc[count:count+125,"126meandifsq"].sum()/125)
     count = count + 1
 
-sq252 = np.sqrt(252)
-merged['5vol'] = merged['std5'] * sq252 * 100
-merged['10vol'] = merged['std10'] * sq252 * 100
-merged['21vol'] = merged['std21'] * sq252 * 100
-merged['63vol'] = merged['std63'] * sq252 * 100
-merged['126vol'] = merged['std126'] * sq252 * 100
+sq365 = np.sqrt(365)
+merged['5vol'] = merged['std5'] * sq365 * 100
+merged['10vol'] = merged['std10'] * sq365 * 100
+merged['21vol'] = merged['std21'] * sq365 * 100
+merged['63vol'] = merged['std63'] * sq365 * 100
+merged['126vol'] = merged['std126'] * sq365 * 100
+
+data_points = 365
+t = np.arange(1,data_points+1,1)
+t = np.flipud(t)
+count = pd.DataFrame(data = t)
+count.columns = ['Days ago']
+
+#vol plot df
+vol_table = merged[['index','Today','Date','5vol','10vol','21vol','63vol','126vol']]
+vol_plot = vol_table[:data_points]
+vol_plot2 = vol_plot.reindex(index=vol_plot.index[::-1]).reset_index()
+vol_plot2 = vol_plot2[['Today','Date','5vol','10vol','21vol','63vol','126vol']].reset_index()
+
+#vol plot
+plt.plot(vol_plot2['index'],vol_plot2['5vol'],'b-',label='5_CC_C')
+plt.plot(vol_plot2['index'],vol_plot2['10vol'],'g-',label='10_CC_C')
+plt.plot(vol_plot2['index'],vol_plot2['21vol'],'r-',label='21_CC_C')
+plt.plot(vol_plot2['index'],vol_plot2['63vol'],'c-',label='63_CC_C')
+plt.plot(vol_plot2['index'],vol_plot2['126vol'],'m-',label='126_CC_C')
+plt.ylabel('Vol')
+plt.xlabel('Days Ago')
+plt.grid(True)
+plt.title('Bitcoin Hist Vol')
+plt.legend(bbox_to_anchor=(1.05, 1), loc=2, borderaxespad=0.)
+plt.show()
+
+#stock plot df
+stock_table = merged[['index','Today']]
+stock_plot = stock_table[:data_points]
+stock_plot2 = stock_plot.reindex(index=stock_plot.index[::-1]).reset_index()
+stock_plot2 = stock_plot2[['Today']].reset_index()
+
+#stock plot
+plt.plot(stock_plot2['index'],stock_plot2['Today'],'k',label='Bitcoin')
+plt.ylabel('Bitcoin')
+plt.xlabel('Days Ago')
+plt.grid(True)
+plt.title('Bitcoin Price')
+plt.legend(bbox_to_anchor=(1.05, 1), loc=2, borderaxespad=0.)
+#plt.rc('figure', figsize=(12, 8))
+plt.show()
