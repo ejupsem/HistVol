@@ -1,0 +1,229 @@
+import sys
+import pandas as pd
+import numpy as np
+from datetime import datetime
+import time
+import multiprocessing
+import webbrowser
+import mysql.connector
+
+#mydb = mysql.connector.connect(
+#  host="rds-mysql-histvols.cfz6xe0w4pvt.us-east-1.rds.amazonaws.com",
+#  user="ejupsem",
+#  passwd="lie19Paj.a",
+#  database="ejupsem"
+#)
+#
+#cursor = mydb.cursor(dictionary=True,buffered = True)
+
+#internet solution
+mydb = mysql.connector.connect(user ='ejupsem', password= 'lie19Paj.a', host = 'rds-mysql-histvols.cfz6xe0w4pvt.us-east-1.rds.amazonaws.com',port='3306', database='ejupsem')
+
+cursor = mydb.cursor()
+
+def Download(Unique):
+    CSV_URL = "https://query1.finance.yahoo.com/v7/finance/download/" + str(Unique) + "?period1=315554400&period2=1546322400&interval=1d&events=history&crumb=9oiSUm88Mxg"
+    chrome_path = 'open -a /Applications/Google\ Chrome.app %s'
+    webbrowser.get(chrome_path).open_new_tab(CSV_URL)
+
+for Symbol in sym['Name'].unique():
+    try:
+        p = multiprocessing.Process(target=Download, name='Download', args=(10,))
+        p.start()
+        #print(Symbol)
+        Download(Symbol)
+        time.sleep(.25)
+        p.terminate()
+        p.join()
+    except:
+        print("error in:" + Symbol)
+        pass
+
+columns = ['Date', 'Adj Close','Name']
+final = pd.DataFrame(columns=columns)
+#noCSV = pd.DataFrame(columns=['Name'])
+#Keys  = pd.read_sql_query("select * from StockKeys",mydb)
+#AVkeys = pd.read_sql_query("Select SecurityID from AllVols group by SecurityID",mydb)
+#AVkeys['x'] = 0
+#Keys = Keys.merge(AVkeys,how='left',on = 'SecurityID')
+#Keys = Keys[Keys['x'].isnull()]
+for Symbol in cboe['Name'].unique():
+    try:
+        print(Symbol)
+        readpath = '/Users/ejupsem/Documents/Financial Data/' + str(Symbol) + '.csv' 
+        face = pd.read_csv(readpath)
+        #if (len(face)) == 0:
+        #    noCSV = noCSV.append([[Symbol]])
+        face['Name'] = str(Symbol)
+        face = face.drop(['Open', 'High', 'Low', 'Close', 'Volume'], axis = 1)
+        final = final.append(face)
+    except:
+        #noCSV = noCSV.append([[Symbol]])
+        print(9)
+        pass
+#    
+#sym2 = sym[sym['x'].isnull()]
+#realSYMS = sym2[['Name']]
+#
+#missing_from_AllVols = pd.DataFrame(columns=['Name'])
+#for Symbol in realSYMS['Name'].unique():
+#    temp = pd.read_sql_query("select a.SecurityID from AllVols a join StockKeys b on a.SecurityID = b.SecurityID where Name = '{}'".format(Symbol),mydb)
+#    if len(temp) < 1:
+#        missing_from_AllVols = missing_from_AllVols.append([[Symbol]])
+#
+##final = pd.read_csv('/Users/ejupsem/Documents/final.csv')
+##final = final.drop(['Unnamed: 0','Close','High','Low','Open','Volume'],axis = 1)
+#final['Last'] = -1
+#final.columns = ['Price','Date','Name','Last']
+#final = final[['Name','Date2','Price','Last']]
+#final=final.reset_index(drop=True)
+#
+
+   
+#for i in range(600000,len(final2)):
+#    print(i)
+#    sql = "Insert IGNORE INTO AllVols (SecurityID,Date,Price,Last,Chg,Rt2,Event,U_5_CC,U_10_CC,U_21_CC,U_63_CC,U_126_CC,U_252_CC,NetEarn_5_CC,NetEarn_10_CC,NetEarn_21_CC,NetEarn_63_CC,NetEarn_126_CC,NetEarn_252_CC,Note) VALUES ({},{},{},{},-1,-1,0,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,'')".format(str(final2.loc[i,'SecurityID']),str(final2.loc[i,'Date']),str(final2.loc[i,'Price']),str(final2.loc[i,'Last']))
+#    cursor.execute(sql)
+#    mydb.commit()
+#
+##final.to_csv('final2.csv')
+##final['Chg'] = -1
+##final['Rt2'] = -1
+##
+##final.to_csv('final2.csv')
+##
+##y6 = pd.DataFrame(columns=['SecurityID'])
+##new = pd.DataFrame(columns=['SecurityID','Name'])
+##for SID in aaa.SecurityID.unique():
+##    try:
+##        #print(type(SID))
+##        #print(SID)
+##        a = pd.DataFrame(aaa[aaa['SecurityID'] == SID])
+##        #print(len(a))
+##        #find where the 4 dates match the 4 dates 19-24
+##        # i dont need a csv for this
+##        #t = pd.read_sql_query("select SecurityID, Date, Price from AllVols where Date = 20181019 and Round(Price,2) = {}".format(round(float(a[a['Date'] == 20181019]['Price']),2)),mydb)
+##        b = pd.DataFrame(bigholder[bigholder['Adj Close'] == float(a[a['Date'] == 20181019]['Price'])]['Name'])
+##        c = pd.DataFrame(bigholder[bigholder['Adj Close'] == float(a[a['Date'] == 20181022]['Price'])]['Name'])
+##        d = pd.DataFrame(bigholder[bigholder['Adj Close'] == float(a[a['Date'] == 20181023]['Price'])]['Name'])
+##        e = pd.DataFrame(bigholder[bigholder['Adj Close'] == float(a[a['Date'] == 20181024]['Price'])]['Name'])
+##        if (len(b) > 0) & (len(c) > 0) & (len(d) > 0) & (len(e) > 0):
+##            two = bigholder[bigholder['Adj Close'] == float(a[a['Date'] == 20181023]['Price'])]['Name'].tolist()[0]
+##            new = new.append([[SID,two]])
+##        #e = bigholder[bigholder['Adj Close'] == float(a[a['Date'] == 20181019]['Price'])]['Name']
+##    except:
+##        print(SID)
+##        y6 = y6.append([[SID]])
+##        pass
+##    
+##for x in range(len(insert)):
+##    sql = insert.loc[x,'sql']
+##    cursor.execute(sql)
+##    mydb.commit()
+##
+##miss = pd.read_csv('/Users/ejupsem/Documents/miss133.csv')
+##All_Stock_Tickers = pd.read_csv('/Users/ejupsem/Documents/Financial Data/All_Stock_Tickers.csv')
+##allmissing = pd.DataFrame(columns=['SecurityID','Date','Price'])
+##for x in range(len(b)):
+##    temp = pd.read_sql_query("select SecurityID, Date, Price from AllVols where SecurityID = {}".format(b.loc[x,'SecurityID']),mydb)
+##    allmissing = allmissing.append(temp)
+##
+###from here
+##All_Stock_Tickers = pd.read_csv('/Users/ejupsem/Documents/Financial Data/All_Stock_Tickers.csv')
+##All_Stock_Tickers.columns = ['Name']
+##Keys  = pd.read_sql_query("select * from StockKeys",mydb)
+###All_Stock_Tickers = All_Stock_Tickers.merge(Keys,how='left',on='Name')
+###All_Stock_Tickers = All_Stock_Tickers[All_Stock_Tickers['SecurityID'].isnull()]
+##minmaxCSV = pd.DataFrame(columns=['Name','min(Date)','max(Date)','ju'])
+##minmax = pd.read_sql_query("select SecurityID, min(Date), max(Date) from AllVols group by SecurityID",mydb)
+###minmax = minmax.merge(miss,how='left',on='SecurityID')
+##failed = 0
+##for Name in All_Stock_Tickers['Name'].unique():
+##    try:
+##        print(Name)
+##        readpath = '/Users/ejupsem/Documents/Financial Data/' + str(Name) + '.csv'
+##        face = pd.read_csv(readpath)
+##        r = face['Date'].str.split("-",expand = True)
+##        r.columns = ['Year','Month','Day']
+##        r['Year'] = r['Year'].astype(int)
+##        r['Month'] = r['Month'].astype(int)
+##        r['Day'] = r['Day'].astype(int)
+##        r['Date'] = r['Year'] * 10000 + r['Month'] * 100 + r['Day']
+##        face['Date2'] = r['Date']
+##        minmaxCSV = minmaxCSV.append([[Name,min(face['Date2']),max(face['Date2']),float(face[face['Date2'] == 20180313]['Adj Close'])]])
+##    except:
+##        failed = failed + 1
+##        pass
+##minmaxCSV = minmaxCSV[[0,1,2,3]]
+##minmaxCSV.columns = ['Name','min(Date)','max(Date)','march13']
+##
+##allmissing2 = pd.DataFrame(columns=['SecurityID','Date','Price'])
+##for x in range(len(b)):
+##    temp = pd.read_sql_query("select SecurityID, Date, Price from AllVols where Date = 20180313 and SecurityID = {}".format(b.loc[x,'SecurityID']),mydb)
+##    allmissing2= allmissing2.append(temp)
+##    
+##t = minmaxCSV.merge(allmissing2,how='left',right_on='Price',left_on='march13')
+##t[~t['SecurityID'].isnull()]
+##a = t[~t['SecurityID'].isnull()]
+##    
+##
+##
+#
+#
+##a = pd.read_sql_query("select SecurityID, count(Date) from AllVols where NetEarn_5_CC = -1 group by SecurityID",mydb)
+##a = a[a['count(Date)'] > 5]
+##a.to_csv('/Users/ejupsem/Documents/toDocalcs.csv',index=None)
+###AllVolKeys = pd.read_csv('/Users/ejupsem/Documents/toDocalcs.csv')
+##AllVolKeys = pd.read_csv('/Users/ejupsem/Documents/toDocalcs.csv')
+##
+#a = pd.read_sql_query("select * from AllVols where SecurityID = 1",mydb)
+#y = a.NetEarn_5_CC
+#y=y.tail(252)
+##
+#y2 = a.NetEarn_10_CC
+#y2 = y2.tail(252)
+##
+#y3 = a.NetEarn_63_CC
+#y3 = y3.tail(252)
+##
+#y4 = a.NetEarn_126_CC
+#y4 = y4.tail(252)
+##
+#y5 = a.NetEarn_252_CC
+#y5 = y5.tail(252)
+##
+#x = range(252)
+#x_max = 252
+#y_max = max(y)
+#y2_max = max(y2)
+#y3_max = max(y3)
+#y4_max = max(y5)
+#y5_max = max(y5)
+##
+#import matplotlib.pyplot as plt
+#plt.plot(x,y, 'b', x,y2, 'r', x,y3, 'y', x,y4, 'magenta', x,y5, 'pink')
+#plt.axis([0, x_max, 0, max(y_max,y2_max)])
+#plt.show()
+#
+##x axis should be dates
+#
+##
+##import matplotlib.pyplot as plt
+##plt.plot([1,2,3,4], [1,4,9,16], 'ro')
+##plt.axis([0, 6, 0, 20])
+##plt.show()
+
+EarnTable = pd.read_csv('/Users/ejupsem/Documents/Financial Data/EarnTable20181217.csv')
+
+for i in range(len(EarnTable)):
+    print(i)
+    sql = "INSERT IGNORE INTO HistEarnDates (SecurityID, Date,Note) VALUES ({},{},'Earn')".format(EarnTable.loc[i,'SecurityID'],EarnTable.loc[i,'Date2'])
+    cursor.execute(sql)
+    mydb.commit()
+
+for i in range(len(cboe)):
+    try:
+        temp = pd.read_csv('/Users/ejupsem/Documents/Financial Data/{}.csv'.format(cboe.loc[i,'Name']))
+        #print(str(cboe.loc[i,'Name']) + str(len(temp)))
+    except:
+        print(cboe.loc[i,'Name'])
