@@ -1,0 +1,438 @@
+import sys
+import pandas as pd
+import numpy as np
+from datetime import datetime
+import time
+import multiprocessing
+import webbrowser
+import mysql.connector
+import math
+
+mydb = mysql.connector.connect(user ='ejupsem', password= 'lie19Paj.a', host = 'rds-mysql-histvols.cfz6xe0w4pvt.us-east-1.rds.amazonaws.com',port='3306', database='ejupsem')
+
+cursor = mydb.cursor()
+
+def Download(Name):
+    csv_url = 'http://quer1a' + Name + ''
+    chrome_path = 'C://Program Files (x86)/Google/Chrome/Applicaiton/chrome.exe %s'
+    webbrowser.get(chrome_path).open_new_tab(csv_url)
+    
+def FindDivNames(currentname):
+    IsWrong = 1
+    try:
+        OldPath = "select SecurityID, Price from AllVols where SecurityID = " + str(currentname['SecurityID']) + " and Date = 20180727"
+        OldPrice = pd.read_sql_query(OldPath, mydb)
+        OldPrice = round(float(OldPrice.loc[0,'Price']),2)
+        newPath = '/Users/ejupsem/Documents/Financial Data/' + str(currentname['Name']) + ".csv"
+        Newfile = pd.read_csv(newPath)
+        
+        NewPrice = round(float(Newfile[Newfile['Date'] == '2018-07-27']['Adj Close']),2)
+        if NewPrice == OldPrice:
+            IsWrong = 0
+    except Exception:
+        p = multiprocessing.Process(target=Download, name = "Download", args=(10,))
+        p.start()
+        Name = str(currentname['Name'])
+        Download(Name)
+        time.sleep(5)
+        p.terminate()
+        p.join()
+        if currentname['fail'] < 2:
+            currentname['fail'] = 5
+            FindDivNames(currentname)
+        pass
+    return IsWrong
+
+def getcatVOLZ(data,stock):
+    stockcheck = data.iloc[0,0]
+    date = data.iloc[0,1]
+    for date in data['Date'].unique():
+        if stockcheck != stock:
+            print('broken')
+            break
+        if len(data) < 7:
+            print('short')
+            break
+        start = data.loc[(data.Date == date) & (data.SecurityID == stock)].index[0] + 5
+        last5 = data.loc[start-4:start,"Rt2"]
+        data.loc[start,"U_5_CC"] = 100*np.sqrt(np.sum(last5)*252/len(last5))
+        if (5 + data.loc[(data.Date == date) & (data.SecurityID == stock), 'Price'].index[0]) > 9:
+            last10 = data.loc[start-9:start,'Rt2']
+            data.loc[start,"U_10_CC"] = 100*np.sqrt(np.sum(last10)*252/len(last10))
+        if (5 + data.loc[(data.Date == date) & (data.SecurityID == stock), 'Price'].index[0]) > 20:
+            last21 = data.loc[start-20:start,'Rt2']
+            data.loc[start,"U_21_CC"] = 100*np.sqrt(np.sum(last21)*252/len(last21))
+        if (5 + data.loc[(data.Date == date) & (data.SecurityID == stock), 'Price'].index[0]) > 62:
+            last63 = data.loc[start-62:start,'Rt2']
+            data.loc[start,"U_63_CC"] = 100*np.sqrt(np.sum(last63)*252/len(last63))
+        if (5 + data.loc[(data.Date == date) & (data.SecurityID == stock), 'Price'].index[0]) > 125:
+            last126 = data.loc[start-125:start,'Rt2']
+            data.loc[start,"U_126_CC"] = 100*np.sqrt(np.sum(last126)*252/len(last126))
+        if (5 + data.loc[(data.Date == date) & (data.SecurityID == stock), 'Price'].index[0]) > 251:
+            last252 = data.loc[start-251:start,'Rt2']
+            data.loc[start,"U_252_CC"] = 100*np.sqrt(np.sum(last252)*252/len(last252))
+           
+        last5 = data.loc[(data.index >= start-4) & (data.index <= start) & (data.Event == 0),"Rt2"]
+        data.loc[start,"NetEarn_5_CC"] = 100*np.sqrt(np.sum(last5)*252/len(last5))
+        if (5 + data.loc[(data.Date == date) & (data.SecurityID == stock), 'Price'].index[0]) > 9:
+            last10 = data.loc[(data.index >= start-9) & (data.index <= start) & (data.Event == 0),'Rt2']
+            data.loc[start,"NetEarn_10_CC"] = 100*np.sqrt(np.sum(last10)*252/len(last10))
+        if (5 + data.loc[(data.Date == date) & (data.SecurityID == stock), 'Price'].index[0]) > 20:
+            last21 = data.loc[(data.index >= start-20) & (data.index <= start) & (data.Event == 0),'Rt2']
+            data.loc[start,"NetEarn_21_CC"] = 100*np.sqrt(np.sum(last21)*252/len(last21))
+        if (5 + data.loc[(data.Date == date) & (data.SecurityID == stock), 'Price'].index[0]) > 62:
+            last63 = data.loc[(data.index >= start-62) & (data.index <= start) & (data.Event == 0),'Rt2']
+            data.loc[start,"NetEarn_63_CC"] = 100*np.sqrt(np.sum(last63)*252/len(last63))
+        if (5 + data.loc[(data.Date == date) & (data.SecurityID == stock), 'Price'].index[0]) > 125:
+            last126 = data.loc[(data.index >= start-125) & (data.index <= start) & (data.Event == 0),'Rt2']
+            data.loc[start,"NetEarn_126_CC"] = 100*np.sqrt(np.sum(last126)*252/len(last126))
+        if (5 + data.loc[(data.Date == date) & (data.SecurityID == stock), 'Price'].index[0]) > 251:
+            last252 = data.loc[(data.index >= start-251) & (data.index <= start) & (data.Event == 0),'Rt2']
+            data.loc[start,"NetEarn_252_CC"] = 100*np.sqrt(np.sum(last252)*252/len(last252))
+            
+        start = start + 1
+        stockcheck = data.loc[start-5,"SecurityID"]
+        if start >= len(data):
+            print("break")
+            break
+    return data
+
+if _name_== "__main__":
+    print(1)
+    print (datetime.now())
+    
+    StockKeys = pd.read_sql_query("Select * from StockKeys", mydb)
+    hey = StockKeys['Name'].str.replace('/','-')
+    StockKeys['Name'] = hey
+    AllVolKeys = pd.read_sql_query("select max(Date),SecurityID from AllVols group by SecurityID",mydb)
+    maxDate = max(AllVolKeys['max(Date)'])
+    Names = pd.DataFrame(AllVolKeys[AllVolKeys['max(Date)'] == maxDate]['SecurityID'])
+    Names = Names.merge(StockKeys, on = 'SecurityID', how = 'left').reset_index(drop = True)
+    Names = Names['Name'].str.replace('/','-')
+    AllVolKeys['fail'] = 0
+    AllVolKeys = AllVolKeys.merge(StockKeys, on = 'SecurityID', how = 'left').reset_index(drop = True)
+    AllVolKeys['Name'] = AllVolKeys['Name'].str.replace('/','-')
+    
+    #Download all symbol csvs
+    print("Downloading all csvs")
+    print(datetime.now())    
+    Names = pd.DataFrame(Names.reset_index(drop = True))
+    for Name in Names['Name'].unique():
+        p.multiprocessing.Process(target=Download, name = "Download", args(10,))
+        p.start()
+        Download(Name)
+        time.sleep(4)
+        p.terminate()
+        p.join()
+    
+    #identify DivNames
+    print("Identifying divnames")
+    print(datetime.now())    
+    DivNames = pd.DataFrame(columns = ['Name'])
+    for x in range(len(AllVolKeys)):
+        IsWrong = FindDivNames(AllVolKeys.loc[x,:])
+        if(IsWrong == 1):
+            DivNames = DivNames.append(AllVolKeys.loc[x,:])
+            
+    DivNames['SecrityID'] = DivNames['SecurityID'].astype(int)
+    DivNames['max(Date)'] = DivNames['max(Date)'].astype(int)
+    DivNames = DivNames.reset_index(drop = True)
+    
+    #pull down all SQL data for DivNames
+    #update that big dataframe completely w/o new dates
+    #update AllVols line by line with big dataframe
+    
+    #pull all Data for DivNames
+    print("pull all data for DivNames")
+    print(datetime.now())
+    columns = ['SecurityID','Date']
+    final = pd.DataFrame(columns = columns)
+    for SecurityID in DivNames['SecurityID'].unique():
+        try:
+            #print(SecurityID)
+            temp = pd.read_sql_query("Select SecurityID,Date,Event,Note from AllVols where SecurityID = {}".format(str(SecurityID)),mydb)
+            final = final.append(temp)
+        except:
+            pass
+        
+    #insert new Price Data
+    print("inserting prices")
+    print(datetime.now())
+    final = final.merge(StockKeys,how='left',on='SecurityID')
+    final['Price'] = -1
+    for Name in final.Name.unique():
+        try:
+            print(Name)
+            readpath = '/Users/ejupsem/Documents/Financial Data/' + str(Name) + '.csv' 
+            face = pd.read_csv(readpath)
+            face = face.drop(['Open', 'High', 'Low', 'Close', 'Volume'], axis = 1)
+            r = face['Date'].str.split("-",expand = True)
+            r.columns = ['Year','Month','Day']
+            r['Year'] = r['Year'].astype(int)
+            r['Month'] = r['Month'].astype(int)
+            r['Day'] = r['Day'].astype(int)
+            r['Date'] = r['Year'] * 10000 + r['Month'] * 100 + r['Day']
+            face['Date2'] = r['Date']
+            face['Name'] = Name
+            face = face[['Adj Close', 'Name', 'Date2']]
+            face.columns = [['Price', 'Name', 'Date']]
+            face = face.merge(StockKeys,how='left',on='Name')
+            face = face[['SecurityID','Date','Price']]
+            final = final.merge(face,how='left',on=['SecurityID','Date'])
+            final['Price'] = final[["Price_x", "Price_y"]].max(axis=1)
+            final = final[['SecurityID','Date','Price','Name','Event','Note']]
+        except:
+            print(Name)
+            pass
+    
+    final = final.reset_index(drop=True)
+
+    #do Last column
+    print("inserting Last prices")
+    print(datetime.now())
+    final2 = pd.DataFrame(columns = ['Name', 'Date', 'Price','Last','Event','Note'])
+    for i in final['Name'].unique():
+        try:
+            print(i)
+            temp = final[final['Name'] == i].reset_index(drop=True)
+            Last = pd.DataFrame(temp['Price']).head(len(temp)-1).reset_index(drop=True)
+            Last.loc[-1] = [-1]
+            Last.sort_index(inplace=True)
+            Last = Last.reset_index(drop=True)
+            temp['Last'] = Last
+            final2 = final2.append(temp)
+        except:
+            pass
+    
+    final2 = final2[['SecurityID', 'Name', 'Date','Price','Last']]
+    final2 = final2.reset_index(drop=True)
+
+    #replace null values
+    print("replacing null values")
+    print(datetime.now())
+    nulls = final2[final2['Price'] == 'null'].reset_index(drop=False)
+    for i in range(len(nulls)):
+        loc =int(nulls.loc[i,'index'])
+        final2.loc[loc,'Price'] = final2.loc[loc-1,'Price']
+        final2.loc[loc+1,'Last'] = final2.loc[loc,'Last']
+
+    #calculate Chg and Rt2
+    print("calculating Chg and Rt2")
+    final2['Price'] = final2['Price'].astype(float)
+    final2['Last'] = final2['Last'].astype(float)
+    final2['Chg'] = (final2['Price'] - final2['Last'])/final2['Last']
+    final2['Rt2'] = (np.log(final2['Price']/final2['Last']))**2
+    final2['Rt2'] = final2['Rt2'].fillna(-1)
+    final2.loc[final2['Last'] == -1,'Chg'] = -1
+    
+    final2['U_5_CC'] = -1
+    final2['U_10_CC'] = -1
+    final2['U_21_CC'] = -1
+    final2['U_63_CC'] = -1
+    final2['U_126_CC'] = -1
+    final2['U_252_CC'] = -1
+    final2['NetEarn_5_CC'] = -1
+    final2['NetEarn_10_CC'] = -1
+    final2['NetEarn_21_CC'] = -1
+    final2['NetEarn_63_CC'] = -1
+    final2['NetEarn_126_CC'] = -1
+    final2['NetEarn_252_CC'] = -1
+    
+    #update vols for SIDs
+    print("starting vol calcs")
+    print(datetime.now())
+    final3 = pd.DataFrame(columns = list(final2))
+    for SID in final2['SecurityID'].unique():
+        try:
+            print(SID)
+            print(datetime.now())
+            df1 = final2[final2['SecurityID'] == SID].reset_index(drop=True)
+            print(datetime.now())
+            df1 = getcatVOLZ(df1,SID)
+            print(datetime.now())
+            final3 = final3.append(df1)
+        except:
+            print("fail " + str(SID))
+            pass
+    
+#####
+
+
+
+    for i in range(len(DivNames)):
+        x = 2
+        print(DivNames.loc[i,'Name'])
+        while x < 18:
+            val = pd.DataFrame(DivNames.iloc[i,:])
+            sql = "Update AllVols SET {} = -1 WHERE SecurityID = {}".format(str(columns[x]),str(int(val.loc['SecurityID',:])))
+            x = x + 1
+            cursor.execute(sql)
+            mydb.commit()
+        
+    lastsql = ""
+    for i in range(len(DivNames)):
+        try:
+            print(i)
+            newPath = "/Users/ejupsem/Documents/Financial Data/" + str(DivNames.iloc[i,0])+".csv"
+            Newfile = pd.read_csv(newPath)
+            r = Newfile['Date'].str.split("-",expand = True)
+            r.columns = ['Year','Month','Day']
+            r['Year'] = r['Year'].astype(int)
+            r['Month'] = r['Month'].astype(int)
+            r['Day'] = r['Day'].astype(int)
+            r['Date'] = r['Year'] * 10000 + r['Month'] * 100 + r['Day']
+            Newfile['Date2'] = r['Date']
+            Newfile['Name'] = str(DivNames.iloc[i,0])
+            Newfile = pd.merge(Newfile,DivNames,how='left',on = 'Name')
+            for x in range(len(Newfile)):
+                sql = "Update AllVols Set Price = {} where Date = {} and SecurityID = {}".format(str(Newfile.loc[x,'Adj Close']),str(Newfile.loc[x,'Date2']),str(Newfile.loc[x,'SecurityID']))
+                if str(Newfile.loc[x,'Adj Close']) == 'nan':
+                    sql = lastsql
+                cursor.execute(sql)
+                lastsql = sql
+            print("committing")
+            mydb.commit()
+        except:
+            pass
+    
+    for i in range(len(DivNames)):
+        print(i)
+        length = pd.read_sql_query("select * from AllVols where SecurityID = " + str(DivNames.iloc[i,1]),mydb)
+        for x in range(1,len(length)):
+            try:
+                PriceSQL = "Select Price from AllVols where Date = {} and SecurityID = {}".format(str(length.loc[x-1,'Date']),str(lenth.loc[x-1,'SecurityID']))
+                Price = pd.read_sql(PriceSQL,mydb)
+                sql = "Update AllVols Set Last= {} where Date = {} and SecurityID = {}".format(str(float(Price.iloc[0,0])),str(length.loc[x,'Date']),str(length.loc[x,'SecurityID']))
+                cursor.execute(sql)
+            except:
+                print("pass")
+                pass
+        db.commit()
+    print("here")
+    sql1 = "Update AllVols SET Chg = (Price - Last)/Last where Last != -1 and Chg = -1"
+    sql2 = "Update AllVols SET Rt2 = POW(LN(Price/Last),2) where Last != -1 and Rt2 = -1"
+    sql3 = "Update AllVols SET Event = 0"
+    cursor.execute(sql1,mydb)
+    print(1)
+    mydb.commit()
+    print(1.5)
+    cursor.execute(sql2,mydb)
+    print(2)
+    mydb.commit()
+    print(2.5)
+    cursor.execute(sql3,mydb)
+    print(3)
+    mydb.commit()
+    #update vols for SID
+    for SID in AllVolKeys['SecurityID'].unique():
+        try:
+            print(SID)
+            print(datetime.now())
+            sql = "select * from AllVols where SecurityID = {}".format(str(SID))
+            df1 = pd.read_sql_query(sql,mydb)
+            print(len(df1))
+            print(datetime.now())
+            df1 = getcatVOLZ(df1,SID)
+            print(datetime.now())
+            df1 = df1.fillna(-1)
+            for x in range(len(df1)):
+                sql2 = "Update AllVols SET U_5_CC = " + str(df1.loc[x,'U_5_CC']) + ", U_10_CC = " + str(df1.loc[x,'U_10_CC']) +   ", U_21_CC = " + str(df1.loc[x,'U_21_CC']) +   ", U_63_CC = " + str(df1.loc[x,'U_63_CC']) +   ", U_126_CC = " + str(df1.loc[x,'U_126_CC']) + ", U_252_CC = " + str(df1.loc[x,'U_252_CC']) +  ", NetEarn_5_CC = " + str(df1.loc[x,'NetEarn_5_CC']) + ", NetEarn_10_CC = " + str(df1.loc[x,'NetEarn_10_CC']) +  ", NetEarn_21_CC = " + str(df1.loc[x,'NetEarn_21_CC']) + ", NetEarn_63_CC = " + str(df1.loc[x,'NetEarn_63_CC']) + ", NetEarn_126_CC = " + str(df1.loc[x,'NetEarn_126_CC']) + ", NetEarn_252_CC = " + str(df1.loc[x,'NetEarn_252_CC']) + " where SecurityID = {} and Date = {}".format(str(SID),df1.loc[x,'Date'])
+                cursor.execute(sql2)
+            mydb.commit()
+            print(datetime.now())
+        except:
+            print("fail")
+            pass
+    
+    for Name in Keys['Name'].unique():
+        try:
+            newPath = "path" + str(Name) + ".csv"
+            Newfile = pd.read_csv(newPath)
+            r = Newfile['Date'].str.split("-",expand = True)
+            r.columns = ['Year','Month','Day']
+            r['Year'] = r['Year'].astype(int)
+            r['Month'] = r['Month'].astype(int)
+            r['Day'] = r['Day'].astype(int)
+            r['Date'] = r['Year'] * 10000 + r['Month'] * 100 + r['Day']
+            Newfile['Date2'] = r['Date']
+            Newfile['Name'] = Name
+            
+            Newfile = pd.merge(Newfile,Keys, how = 'left', on = 'Name')
+            sqlhistearn = "Select * from HistEarnDates where SecurityID = {} order by Date".format(str(Newfile.loc[0,'SecurityID']))
+            sqlhistcat = "Select * from HistCat where SecurityID = {} order by Date".format(str(Newfile.loc[0,'SecurityID']))
+            HistEarn = pd.read_sql_query(sqlhistearn,mydb)
+            HistCat = pd.read_sql_query(sqlhistcat,mydb)
+            Newfile = pd.merge(Newfile,HistEarn, how = 'left',left_on = 'Date2', right_on = 'Date')
+            Newfile = pd.merge(Newfile,HistCat, how = 'left',left_on = 'Date2', right_on = 'EffDate')
+            Newfile['Note'] = np.nan
+            Newfile['Note'] = np.where(Newfile.SecurityID_y.notnull(),Newfile.EvtType_x,np.where((Newfile.SecurityID.notnull()) & (Newfile.SecurityID_y.isnull()),Newfile.EventDesc,np.nan))
+            Newfile['Event'] = np.where(Newfile.Note.isull(),0,1)
+            sqlmaxdate = int(pd.read_sql_query(sqlmaxdate,mydb).iloc[0,0])
+            i = 1
+            while Newfile.loc[len(Newfile)-i,'Date2'] > maxDate:
+                Note = "'" + str(Newfile.loc[len(Newfile)-i,'Note']) + "'"
+                if str(Newfile.loc[len(Newfile)-i,'Note']) == 'nan':
+                    Note = "''"
+                sql8 = "Insert Ignore Into AllVols (SecurityID,..........) VALUES (" + str(Newfile.loc[len(Newfile)-i,'SecurityID']) + "," + ... Date2, etc
+                sql9 = "Update AllVol SET Note = {} where SecurityID = {} and Date = {}".format(Note,str(Newfile.loc[len(Newfile)-i,'SecurityID_x']),str(Newfile.loc[len(Newfile)-i,'Date2']))
+                cursor.execute(sql8)
+                cursor.execute(sql9)
+                i = i + 1
+                db.commit()
+        except:
+            print("fail")
+            pass
+    sql1 = "Update AllVols SET Chg = (Price - Last)/Last where Last != -1 and Chg = -1"
+    sql2 = "Update AllVols SET Rt2 = POW(LN(Price/Last),2) where Last != -1 and Rt2 = -1"    
+    cursor.execute(sql1)
+    cursor.execute(sql2)
+    db.commit()
+    
+    Dates = pd.read_sql_query("select AllVols.SecurityID, Date, count(*) from AllVols a join StockKeys b on a.SecurityID = b.SecurityID where U_5_CC IS NULL or U_10_CC IS NULL group by Date", mydb)
+    Datelist = pd.read_sql_query("Select Date from AllVols group by Date",mydb)
+    
+    for Date in Dates['Date'].unique():
+        try:
+            print(Date)
+            index = Datelist.index[Datelist['Date'] == Date].tolist()[0]
+            start = Datelist.loc[index-4,'Date']
+            sql5vols = f"Select x.SecurityID, Date, if(t=5,z.netearn5,-1) as netearn5, if (t=5, a.u5, - -1) as u5 from AllVol x \
+                        join (Select SecurityID, count(Rt2) as t from AllVol where Rt2 >= 0 and Date >= {start} and Date <= {Date} group by SecurityID) y on y.SecurityID = x.SecurityID \
+                        join (Select SecurityID, SQRT(Sum(Rt2 * 252 * 100 * 100)/count(Rt2)) as netearn5 from AllVol where Date >= {start} and Date <= {Date} and Event = 0 group by SecurityID) z on y.SecurityID = z.SecurityID \
+                        join (Select SecurityID, SQRT(Sum(Rt2 * 252 * 100 * 100)/count(Rt2)) as u5 from AllVols where Date >= {start} and Date <= {Date} group by SecurityID) a on y.SecurityID = a.SecurityID \
+                        where Date >= {start} and Date <= {Date} group by SecurityID"
+            vols5 = pd.read_sql_query(sql5vols,mydb)
+            for SID in vols5['SecurityID'].unique():
+                updatesqlu5 = "Update AllVols SET U_5_CC = {} where SecurityID = {} and Date = {}".format(float(vols5[vols5['SecurityID'] == SID]['u5']),SID,Date)
+                cursor.execute(updatesqlu5)
+                updatesqlnet5 = "Update AllVols SET NetEarn_5_CC = {} where SecurityID = {} and Date = {}".format(float(vols5[vols5['SecurityID'] == SID]['netearn5']),SID,Date)
+                cursor.execute(updatesqlu5)
+                
+            start = Datelist.loc[index-9,'Date']
+            sql10vols = f"Select x.SecurityID, Date, if(t=10,z.netearn10,-1) as netearn10, if (t=10, a.u10, - -1) as u10 from AllVol x \
+                        join (Select SecurityID, count(Rt2) as t from AllVol where Rt2 >= 0 and Date >= {start} and Date <= {Date} group by SecurityID) y on y.SecurityID = x.SecurityID \
+                        join (Select SecurityID, SQRT(Sum(Rt2 * 252 * 100 * 100)/count(Rt2)) as netearn10 from AllVol where Date >= {start} and Date <= {Date} and Event = 0 group by SecurityID) z on y.SecurityID = z.SecurityID \
+                        join (Select SecurityID, SQRT(Sum(Rt2 * 252 * 100 * 100)/count(Rt2)) as u10 from AllVols where Date >= {start} and Date <= {Date} group by SecurityID) a on y.SecurityID = a.SecurityID \
+                        where Date >= {start} and Date <= {Date} group by SecurityID"
+            vols10 = pd.read_sql_query(sql10vols,mydb)
+            for SID in vols10['SecurityID'].unique():
+                updatesqlu10 = "Update AllVols SET U_10_CC = {} where SecurityID = {} and Date = {}".format(float(vols10[vols10['SecurityID'] == SID]['u10']),SID,Date)
+                cursor.execute(updatesqlu10)
+                updatesqlnet10 = "Update AllVols SET NetEarn_10_CC = {} where SecurityID = {} and Date = {}".format(float(vols10[vols10['SecurityID'] == SID]['netearn10']),SID,Date)
+                cursor.execute(updatesqlu10)
+            
+            
+            db.commit()
+        except:
+            pass
+
+
+
+DivNames = pd.read_sql_query("Select SecurityID from AllVols where Price = -1 group by SecurityID",mydb)
+DivNames2 = pd.read_sql_query("Select SecurityID,count(Date) from AllVols where NetEarn_5_CC = -1 group by SecurityID",mydb)
+DivNames2 = DivNames2[DivNames2['count(Date)'] > 5]
+DivNames2 = DivNames2[['SecurityID']]
+DivNames2 = DivNames2.reset_index(drop=True)
+DivNames = DivNames.reset_index(drop=True)
+DivNames = DivNames.append(DivNames2)
+DivNames = DivNames.reset_index(drop=True)
