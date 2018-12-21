@@ -1,0 +1,100 @@
+import pandas as pd
+import sys
+sys.path.append('/Users/eejups/anaconda3/bin/python')
+import mysql.connector
+
+mydb = mysql.connector.connect(
+  host="rds-mysql-histvols.cfz6xe0w4pvt.us-east-1.rds.amazonaws.com",
+  user="ejupsem",
+  passwd="lie19Paj.a",
+  database="ejupsem"
+)
+
+cursor = mydb.cursor(dictionary=True,buffered = True)
+
+hey = sym['Name'].str.replace('.','-')
+sym['Name'] = hey
+
+#insert into StockKeys
+for i in range(len(sym)):
+    print(i)
+    sql = "INSERT IGNORE INTO StockKeys (SecurityID, Name) VALUES ({},'{}')".format(sym.loc[i,'SecurityID'],sym.loc[i,'Name'])
+    cursor.execute(sql)
+    mydb.commit()
+
+#pull all data for new Names from their CSVs
+Keys = pd.read_sql_query("Select * from StockKeys",mydb)
+columns = ['Date', 'Adj Close','Name']
+final = pd.DataFrame(columns=columns)
+for Symbol in sym['Name'].unique():
+    try:
+        print(Symbol)
+        readpath = '/Users/ejupsem/Documents/Financial Data/' + str(Symbol) + '.csv' 
+        face = pd.read_csv(readpath)
+        #if (len(face)) == 0:
+        #    noCSV = noCSV.append([[Symbol]])
+        face['Name'] = str(Symbol)
+        face = face.drop(['Open', 'High', 'Low', 'Close', 'Volume'], axis = 1)
+        final = final.append(face)
+    except:
+        #noCSV = noCSV.append([[Symbol]])
+        print(9)
+        pass
+
+#convert Date format
+r = final['Date'].str.split("-",expand = True)
+r.columns = ['Year','Month','Day']
+r['Year'] = r['Year'].astype(int)
+r['Month'] = r['Month'].astype(int)
+r['Day'] = r['Day'].astype(int)
+r['Date'] = r['Year'] * 10000 + r['Month'] * 100 + r['Day']
+final['Date2'] = r['Date']
+
+#format final dataframe and add SecuirtyID
+final = final[['Adj Close', 'Name', 'Date2']]
+final.columns = [['Price', 'Name', 'Date']]
+final = final.merge(Keys,how='left',on='Name')
+final = final[['SecurityID', 'Name', 'Date','Price']]
+
+#create Last column
+final2 = pd.DataFrame(columns = ['Name', 'Date', 'Price','Last'])
+for i in final['Name'].unique():
+    try:
+        temp = final[final['Name'] == i].reset_index(drop=True)
+        Last = pd.DataFrame(temp['Price']).head(len(temp)-1).reset_index(drop=True)
+        Last.loc[-1] = [-1]
+        Last.sort_index(inplace=True)
+        Last = Last.reset_index(drop=True)
+        temp['Last'] = Last
+        final2 = final2.append(temp)
+    except:
+        pass
+
+final2 = final2[['SecurityID', 'Name', 'Date','Price','Last']]
+final2 = final2.reset_index(drop=True)
+
+#fix null values in final2
+nulls = final2[final2['Price'] == 'null'].reset_index(drop=False)
+for i in range(len(nulls)):
+    loc =int(nulls.loc[i,'index'])
+    final2.loc[loc,'Price'] = final2.loc[loc-1,'Price']
+    final2.loc[loc+1,'Last'] = final2.loc[loc,'Last']
+
+for i in range(len(final2)):
+    print(i)
+    sql = "Insert IGNORE INTO AllVols (SecurityID,Date,Price,Last,Chg,Rt2,Event,U_5_CC,U_10_CC,U_21_CC,U_63_CC,U_126_CC,U_252_CC,NetEarn_5_CC,NetEarn_10_CC,NetEarn_21_CC,NetEarn_63_CC,NetEarn_126_CC,NetEarn_252_CC,Note) VALUES ({},{},{},{},-1,-1,0,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,'')".format(str(final2.loc[i,'SecurityID']),str(final2.loc[i,'Date']),str(final2.loc[i,'Price']),str(final2.loc[i,'Last']))
+    cursor.execute(sql)
+    mydb.commit()
+
+for SID in final2.SecurityID.unique():
+    print(SID)
+    sql1 = "Update AllVols SET Chg = ((Price - Last)/Last) where Last != -1 and SecurityID = {}".format(SID)
+    print("A")
+    cursor.execute(sql1)
+    print("B")
+    print("C")
+    sql2 = "Update AllVols SET Rt2 = POW(LN(Price/Last),2) where Last != -1 and SecurityID = {}".format(SID)
+    print("D")
+    cursor.execute(sql2)
+    print("E")
+    mydb.commit()
